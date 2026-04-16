@@ -1,0 +1,15 @@
+{
+  "input_type": "text_file",
+  "input_path": "examples/user_input.txt",
+  "baseline_type": "xlsx",
+  "baseline_path": "examples/user_baseline.xlsx",
+  "baseline_sheet_name": "benchmarks",
+  "top_k": 3,
+  "llm": {
+    "provider": "deepseek",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-chat"
+  },
+  "log_decisions": false
+}

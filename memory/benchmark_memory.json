@@ -1,0 +1,129 @@
+{
+  "memory_name": "advantage_scout_benchmark_memory",
+  "version": 1,
+  "purpose": "White-box rules for normalizing benchmark inputs, validating intermediate tables, and making safe comparison judgements.",
+  "core_principles": [
+    "Support two input formats now: raw clipboard text and xlsx files.",
+    "Normalize every input into an intermediate structured table before judgement.",
+    "Validate the normalized table before any comparison; stop if validation fails.",
+    "Support flexible header alignment instead of requiring perfect schema matches.",
+    "Missing or misaligned fields lower confidence; they do not cause runtime failure.",
+    "If information is insufficient, return insufficient information instead of making a claim.",
+    "Do not hallucinate missing values, hidden assumptions, or chip advantages.",
+    "Keep judgement logic white-box, editable, and auditable."
+  ],
+  "input_policy": {
+    "supported_formats": [
+      "raw clipboard text",
+      "xlsx file"
+    ],
+    "require_intermediate_table": true,
+    "format_policy": "Both formats are first-class inputs and should use the same downstream normalization, validation, and judgement pipeline."
+  },
+  "intermediate_schema": {
+    "canonical_headers": [
+      "model_name",
+      "model_scale_b",
+      "chip_name",
+      "chip_number",
+      "global_batch_size",
+      "micro_batch_size",
+      "batch_size",
+      "seq_length",
+      "tp",
+      "pp",
+      "cp",
+      "vp",
+      "throughput",
+      "tokens_per_sec_per_gpu",
+      "model_tflops_per_gpu",
+      "train_days_estimate",
+      "workload_type",
+      "source",
+      "notes"
+    ],
+    "header_aliases": {
+      "model_name": ["model", "model name", "network", "llm"],
+      "model_scale_b": ["model scale", "model size", "params(b)", "params b", "billions of params"],
+      "chip_name": ["chip", "chip name", "gpu", "gpu name", "accelerator", "device"],
+      "chip_number": ["#-gpus", "# gpus", "num gpus", "gpu count", "cards", "chip number", "chips"],
+      "global_batch_size": ["gbs", "global batch size"],
+      "micro_batch_size": ["mbs", "micro batch size"],
+      "batch_size": ["batch", "batch size", "bs"],
+      "seq_length": ["sequence length", "seq length", "seq", "context length", "input length"],
+      "tp": ["tp", "tensor parallel", "tensor parallelism"],
+      "pp": ["pp", "pipeline parallel", "pipeline parallelism"],
+      "cp": ["cp", "context parallel", "context parallelism"],
+      "vp": ["vp", "virtual pipeline", "virtual pipeline stages"],
+      "throughput": ["throughput", "tokens/s", "tok/s", "tokens per sec", "total throughput"],
+      "tokens_per_sec_per_gpu": ["tokens / sec / gpu", "tokens/sec/gpu", "tok/s/gpu", "throughput per gpu"],
+      "model_tflops_per_gpu": ["model tflop / sec / gpu", "model tflops per gpu", "tflops/gpu"],
+      "train_days_estimate": ["est. time to train in days", "train days", "estimated training days"],
+      "workload_type": ["workload", "task type", "mode"],
+      "source": ["source", "url", "origin"],
+      "notes": ["notes", "remark", "comments"]
+    }
+  },
+  "validation_policy": {
+    "must_extract_at_least_one_row": true,
+    "must_have_at_least_one_identifier": ["model_name", "chip_name"],
+    "numeric_fields_to_parse_when_present": [
+      "model_scale_b",
+      "chip_number",
+      "global_batch_size",
+      "micro_batch_size",
+      "batch_size",
+      "seq_length",
+      "tp",
+      "pp",
+      "cp",
+      "vp",
+      "throughput",
+      "tokens_per_sec_per_gpu",
+      "model_tflops_per_gpu",
+      "train_days_estimate"
+    ],
+    "stop_conditions": [
+      "no rows extracted",
+      "all extracted rows missing key identifiers",
+      "numeric parsing fails on critical fields needed for the requested judgement",
+      "units are contradictory and cannot be resolved",
+      "training and inference metrics are mixed without enough labeling"
+    ]
+  },
+  "comparison_policy": {
+    "alignment_strategy": "Use any overlapping canonical fields; do not require full alignment.",
+    "missing_field_behavior": "Treat missing values as unknown, reduce confidence, and explain the gap.",
+    "mismatch_behavior": "Surface mismatches explicitly and weaken the claim instead of blocking immediately.",
+    "hard_block_behavior": "If evidence is too weak for the requested judgement, return insufficient information."
+  },
+  "throughput_judgement_policy": {
+    "harder_condition_assumptions": [
+      "larger model scale is harder",
+      "longer sequence length is harder",
+      "fewer chips is harder for total throughput claims",
+      "smaller batch size is harder for throughput",
+      "parallelism differences can affect comparability and should be surfaced"
+    ],
+    "judgement_states": [
+      "better",
+      "tentative better",
+      "similar",
+      "worse",
+      "insufficient information"
+    ],
+    "state_rules": {
+      "better": "Use only when throughput is higher and workload conditions are equal or harder with enough aligned evidence.",
+      "tentative better": "Use when throughput is higher but some important workload factors are easier or not fully aligned.",
+      "similar": "Use when compared throughput metrics are close and no strong advantage is supported.",
+      "worse": "Use when throughput is lower under comparable enough conditions.",
+      "insufficient information": "Use when key comparison evidence is missing, conflicting, or too weak."
+    }
+  },
+  "anti_hallucination_policy": {
+    "forbid_inventing_chip_names": true,
+    "forbid_inventing_numeric_values": true,
+    "forbid_forcing_apples_to_apples_when_not_true": true,
+    "required_safe_message": "Information is not enough to make a reliable judgement."
+  }
+}

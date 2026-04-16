@@ -1,0 +1,14 @@
+{
+  "input_type": "raw_text",
+  "input_text": "| model | chip | # gpus | seq length | throughput |\n| --- | --- | --- | --- | --- |\n| Llama3-8B | A30 | 8 | 4096 | 16200 |",
+  "baseline_type": "raw_text",
+  "baseline_text": "| model | chip | # gpus | seq length | throughput |\n| --- | --- | --- | --- | --- |\n| Llama3-8B | A30 | 8 | 4096 | 15000 |",
+  "top_k": 3,
+  "llm": {
+    "provider": "deepseek",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "base_url": "https://api.deepseek.com",
+    "model": "deepseek-chat"
+  },
+  "log_decisions": false
+}

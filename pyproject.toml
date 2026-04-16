@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "advantage-scout"
+version = "0.1.0"
+description = "White-box benchmark comparison framework for AI chip product work"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+xlsx = ["openpyxl>=3.1"]
+
+[project.scripts]
+advantage-scout = "advantage_scout.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

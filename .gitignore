@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+
+memory/decisions.jsonl
+
+examples/live_output*.json
+examples/live_output*.md
