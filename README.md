@@ -1,3 +1,5 @@
+powered by arkclaw
+
 # AdvantageScout
 
 `AdvantageScout` is the first step of a larger benchmark-comparison agent for AI chip product work.
