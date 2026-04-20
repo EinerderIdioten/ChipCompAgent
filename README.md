@@ -83,25 +83,11 @@ Fallback: if local retrieval looks weak, split the baseline into tiles and use t
 
 The normalized table should support at least these fields:
 
-- `model_name`
-- `model_scale_b`
-- `chip_name`
-- `chip_number`
-- `global_batch_size`
-- `micro_batch_size`
-- `batch_size`
-- `seq_length`
-- `tp`
-- `pp`
-- `cp`
-- `vp`
-- `throughput`
-- `tokens_per_sec_per_gpu`
-- `model_tflops_per_gpu`
-- `train_days_estimate`
-- `workload_type`
-- `source`
-- `notes`
+- 🧾 **Identity**: `model_name`, `model_scale_b`, `chip_name`, `chip_number`
+- 📦 **Batching**: `global_batch_size`, `micro_batch_size`, `batch_size`, `seq_length`
+- 🧩 **Parallelism**: `tp`, `pp`, `cp`, `vp`
+- ⚡ **Performance**: `throughput`, `tokens_per_sec_per_gpu`, `model_tflops_per_gpu`, `train_days_estimate`
+- 🗂️ **Context**: `workload_type`, `source`, `notes`
 
 Header alignment should be alias-based and flexible. Query information and baseline information do not need to fully align.
 
