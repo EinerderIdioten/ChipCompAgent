@@ -96,6 +96,100 @@ class OpenAICompatibleLLMClient:
         selections.sort(key=lambda item: (item.query_row_id, item.rank))
         return query_plans, selections
 
+    def select_candidate_sets_batch(
+        self,
+        query_candidate_sets: list[tuple[IndexedRow, list[IndexedRow]]],
+        top_k: int,
+    ) -> tuple[list[QueryPlan], list[SelectionResult]]:
+        response = self._chat_json(
+            system_prompt=(
+                "You are the Batched Rerank Agent for AdvantageScout. "
+                "Each item contains one query row and its own locally retrieved candidate rows. "
+                "For each item, select the final top rows only from that item's candidates. "
+                "Return JSON only."
+            ),
+            user_payload={
+                "task": (
+                    "For each query item, compare the query row against its candidate rows, "
+                    "then return final top rows with reasons and quoted supporting cells."
+                ),
+                "top_k": top_k,
+                "items": [
+                    {
+                        "query_row_id": query_row.row_id,
+                        "query_row": query_row.values,
+                        "candidate_rows": [asdict(row) for row in candidate_rows],
+                    }
+                    for query_row, candidate_rows in query_candidate_sets
+                ],
+                "required_output_schema": {
+                    "results": [
+                        {
+                            "query_row_id": "string",
+                            "query_summary": "string",
+                            "selection_focus": "string",
+                            "important_schema_keys": ["string"],
+                            "ambiguity_notes": ["string"],
+                            "selected": [
+                                {
+                                    "baseline_row_id": "string",
+                                    "rank": "integer",
+                                    "why_selected": "string",
+                                    "comparison_note": "string",
+                                    "supporting_quotes": [
+                                        {
+                                            "schema_key": "string",
+                                            "query_value": "any",
+                                            "baseline_value": "any",
+                                            "note": "string",
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+        )
+
+        row_lookup_by_query = {
+            query_row.row_id: {row.row_id: row.values for row in candidate_rows}
+            for query_row, candidate_rows in query_candidate_sets
+        }
+        query_plans: list[QueryPlan] = []
+        selections: list[SelectionResult] = []
+        for result in response.get("results", []):
+            query_row_id = str(result.get("query_row_id", ""))
+            row_lookup = row_lookup_by_query.get(query_row_id)
+            if not row_lookup:
+                continue
+            query_plans.append(
+                QueryPlan(
+                    query_row_id=query_row_id,
+                    query_summary=str(result.get("query_summary", "")),
+                    selection_focus=str(result.get("selection_focus", "")),
+                    important_schema_keys=[str(item) for item in result.get("important_schema_keys", [])],
+                    ambiguity_notes=[str(item) for item in result.get("ambiguity_notes", [])],
+                )
+            )
+            for item in result.get("selected", []):
+                baseline_row_id = str(item.get("baseline_row_id", ""))
+                if baseline_row_id not in row_lookup:
+                    continue
+                selections.append(
+                    SelectionResult(
+                        query_row_id=query_row_id,
+                        rank=int(item.get("rank", 0) or 0),
+                        baseline_row_id=baseline_row_id,
+                        baseline_row=row_lookup[baseline_row_id],
+                        why_selected=str(item.get("why_selected", "")),
+                        supporting_quotes=_parse_quotes(item.get("supporting_quotes", [])),
+                        comparison_note=_optional_text(item.get("comparison_note")),
+                    )
+                )
+        selections.sort(key=lambda item: (item.query_row_id, item.rank))
+        return query_plans, selections
+
     def select_rows_direct(
         self,
         query_row: IndexedRow,

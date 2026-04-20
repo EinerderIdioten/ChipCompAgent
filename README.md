@@ -69,17 +69,15 @@ The CLI loads `.env` by default. You can also point it to another file with `--e
 
 ## Required pipeline
 
-1. ingest input
-2. normalize to intermediate table
-3. validate normalized table structure
-4. stop only if structural validation fails
-5. build query understanding summary for each query row
-6. split large baselines into tiles by context budget
-7. ask the LLM to nominate candidate rows from each tile
-8. rerank pooled candidates with the LLM
-9. return only the top `top_k` rows
-10. write the reason each selected row was chosen
-11. optionally log the decision
+1. 🚀 ingest input
+2. 🧹 normalize to an intermediate table
+3. ✅ validate structure, then stop only on structural errors
+4. 🔎 retrieve high-recall local candidates from the full baseline
+5. 🤖 rerank candidates with the LLM
+6. 🏁 return the top `top_k` rows with reasons and quoted evidence
+7. 📝 optionally log the decision
+
+Fallback: if local retrieval looks weak, split the baseline into tiles and use tiled LLM nomination as the slower safety path.
 
 ## Canonical schema
 
@@ -144,46 +142,58 @@ The comparison workflow should be organized as cooperating agents:
 
 ## LLM Selection Policy
 
-Row selection should not rely on hand-written scoring rules or hard-coded thresholds.
+Row selection should not rely on brittle thresholds or brute-force LLM scans.
 
-Recommended strategy:
+- 🚀 Use fast local retrieval first, then one LLM rerank pass.
+- 💥 Do not ask the LLM to scan every tile unless retrieval fails.
+- 🧠 Keep retrieval weights configurable now and learnable later.
+- 🧾 Always return reasons plus quoted supporting cells.
 
-- do not feed the whole large baseline in one call if it exceeds context budget
-- do not judge each baseline row independently without global reranking
-- use tiled candidate retrieval first, then one final reranking pass
+This keeps latency lower than LLM-over-every-tile scanning while preserving LLM reasoning for the final decision.
 
-This gives better scalability than one-shot prompting and better final ranking quality than naive row-by-row calls.
+## Learnable Candidate Retrieval
+
+The retrieval stage is fast and auditable. It only builds a shortlist; the LLM makes the final ranked choice.
+
+- 🧬 **Model family**: match names like `LLAMA3`, `Qwen3`, `GPT3`, `Nemotron`.
+- ⚖️ **Model scale**: parse `B` sizes where possible and compare by log-distance.
+- 📏 **Sequence length**: compare `seq_length` softly, not by exact match only.
+- 🧩 **Parallelism**: compare `tp`, `pp`, `cp`, and `vp`.
+- 🧮 **Batch/chip shape**: compare `global_batch_size`, `micro_batch_size`, and `chip_number`.
+- 🎯 **Workload**: boost LLM pretraining; penalize unrelated multimodal/video rows for LLM queries.
+
+Fair initial weights:
+
+```json
+{
+  "model_family": 0.30,
+  "model_scale": 0.25,
+  "sequence_length": 0.15,
+  "parallelism": 0.15,
+  "batch_chip": 0.10,
+  "workload": 0.05
+}
+```
+
+Store these weights in config or memory, not as permanent magic constants. Also record retrieval features, candidate ranks, final LLM choices, and user feedback so a later RL or bandit loop can tune them.
+
+Candidate contract:
+
+- 🔎 score every baseline row locally for each query row
+- 📦 keep a high-recall shortlist, for example top `30` to `50`
+- 🧯 include extra candidates when fields are missing or scores are close
+- 🤖 pass only the shortlist to the LLM for final rerank and reasoning
+- 🧠 preserve feature evidence for future learning
 
 ## Tile Compatibility Principle
 
-Tiling introduces an evaluation risk:
+Tiling is useful, but tile-local ranks are not globally comparable.
 
-- one tile may contain mostly weak rows
-- another tile may contain stronger rows
-- tile-local rankings are therefore not globally comparable by themselves
-
-Because of that, the workflow should follow this rule:
-
-- tile stage = candidate retrieval with high recall
-- final rerank stage = true global evaluation with high precision
-
-Implementation guidance:
-
-- do not treat tile-local rank as the final global rank
-- do not rely on tile-local scores as globally calibrated measures
-- reuse one shared query understanding summary across all tiles
-- keep a shortlist of plausible rows from each tile
-- perform the true final ranking only after pooling candidates across tiles
-
-Fast-path note:
-
-- if the full baseline fits safely in one context window, skip tile retrieval
-- for that case, run one direct global selection call per query row
-- use the tiled multi-stage workflow only when the baseline is too large for one call
-
-If both the full query set and the full baseline fit safely in one context window, batch all query rows into one direct global selection call first.
-
-For reliability, the runtime may still split the query set into smaller batched calls and fall back to one-call-per-query if a provider response returns malformed JSON.
+- 🚀 Default path: local retrieval gives high-recall candidates fast.
+- 🧱 Fallback path: tiled LLM nomination only when retrieval coverage is weak.
+- 🏁 Final path: rerank pooled candidates globally before returning `top_k`.
+- ⚠️ Never treat tile-local rank as final rank.
+- 🧯 If batched LLM JSON breaks, split into smaller batches or one query per call.
 
 ## Config Contract
 

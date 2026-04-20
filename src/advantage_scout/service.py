@@ -5,6 +5,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from .candidate_retriever import retrieve_candidates
 from .input_adapters import RawInput, ingest_clipboard_text, ingest_text_file, ingest_xlsx
 from .llm import OpenAICompatibleLLMClient
 from .memory import append_decision
@@ -60,6 +61,28 @@ class AdvantageScoutService:
         query_plans: list[QueryPlan] = []
         selections: list[SelectionResult] = []
         baseline_tiles = self._tile_rows(baseline_rows)
+
+        if config.use_local_retrieval:
+            query_plans, selections = self._run_local_retrieval_selection(
+                llm_client=llm_client,
+                query_rows=query_rows,
+                baseline_rows=baseline_rows,
+                top_k=config.top_k,
+                candidate_top_n=config.candidate_top_n,
+                retrieval_batch_size=config.retrieval_batch_size,
+                retrieval_weights=config.retrieval_weights,
+            )
+            return self._build_result(
+                query_table=query_table,
+                query_validation=query_validation,
+                baseline_table=baseline_table,
+                baseline_validation=baseline_validation,
+                query_rows=query_rows,
+                baseline_rows=baseline_rows,
+                query_plans=query_plans,
+                selections=selections,
+                log_decisions=config.log_decisions,
+            )
 
         if len(baseline_tiles) == 1 and self._fits_single_batch(query_rows, baseline_rows):
             query_plans, selections = self._run_batched_direct_selection(
@@ -134,6 +157,66 @@ class AdvantageScoutService:
             query_plans=query_plans,
             selections=selections,
         )
+
+    def _run_local_retrieval_selection(
+        self,
+        llm_client: OpenAICompatibleLLMClient,
+        query_rows: list[IndexedRow],
+        baseline_rows: list[IndexedRow],
+        top_k: int,
+        candidate_top_n: int,
+        retrieval_batch_size: int,
+        retrieval_weights: dict[str, float] | None,
+    ) -> tuple[list[QueryPlan], list[SelectionResult]]:
+        query_plans: list[QueryPlan] = []
+        selections: list[SelectionResult] = []
+        shortlist_size = max(candidate_top_n, top_k)
+
+        query_candidate_sets = [
+            (
+                query_row,
+                retrieve_candidates(
+                    query_row=query_row,
+                    baseline_rows=baseline_rows,
+                    top_n=shortlist_size,
+                    weights=retrieval_weights,
+                ),
+            )
+            for query_row in query_rows
+        ]
+
+        batch_size = max(retrieval_batch_size, 1)
+        for batch_start in range(0, len(query_candidate_sets), batch_size):
+            batch = query_candidate_sets[batch_start : batch_start + batch_size]
+            if len(batch) == 1:
+                query_row, candidate_rows = batch[0]
+                query_plan, direct_selections = llm_client.select_rows_direct(
+                    query_row=query_row,
+                    baseline_rows=candidate_rows,
+                    top_k=top_k,
+                )
+                query_plans.append(query_plan)
+                selections.extend(direct_selections)
+                continue
+
+            try:
+                batch_query_plans, batch_selections = llm_client.select_candidate_sets_batch(
+                    query_candidate_sets=batch,
+                    top_k=top_k,
+                )
+                query_plans.extend(batch_query_plans)
+                selections.extend(batch_selections)
+            except Exception:
+                for query_row, candidate_rows in batch:
+                    query_plan, direct_selections = llm_client.select_rows_direct(
+                        query_row=query_row,
+                        baseline_rows=candidate_rows,
+                        top_k=top_k,
+                    )
+                    query_plans.append(query_plan)
+                    selections.extend(direct_selections)
+
+        return query_plans, selections
 
     def load_config_file(self, path: str | Path) -> RunConfig:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))

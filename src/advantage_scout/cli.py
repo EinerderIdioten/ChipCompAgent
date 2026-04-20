@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .env import load_dotenv
 from .llm import render_selection_explanation
+from .output_writer import build_selection_table, write_selection_table
 from .service import AdvantageScoutService
 
 
@@ -24,6 +25,18 @@ def main(argv: list[str] | None = None) -> int:
     output = service.result_to_dict(result)
     if args.with_explanations:
         output["explanations"] = [render_selection_explanation(item) for item in result.selections]
+    output["selection_table"] = build_selection_table(
+        result,
+        max_candidates_per_query=config.output_max_candidates,
+    )
+
+    output_table_path = args.output_table_file or config.output_table_path
+    if output_table_path:
+        write_selection_table(
+            result,
+            output_table_path,
+            max_candidates_per_query=config.output_max_candidates,
+        )
 
     rendered_output = json.dumps(output, indent=2, ensure_ascii=False)
     if args.output_file:
@@ -53,6 +66,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--output-file",
         type=Path,
         help="Optional path to write the JSON result to disk",
+    )
+    run_parser.add_argument(
+        "--output-table-file",
+        type=Path,
+        help="Optional path to write a compact selected-candidate table as .xlsx or .csv",
     )
     return parser
 

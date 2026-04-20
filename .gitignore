@@ -6,3 +6,13 @@ memory/decisions.jsonl
 
 examples/live_output*.json
 examples/live_output*.md
+
+# Local real-data experiments and generated reports.
+examples/real_baseline*.xlsx
+examples/*cleaned*.xlsx
+examples/*output*.json
+examples/*selected*.xlsx
+examples/query_first_row.xlsx
+examples/query_user_training_table.xlsx
+examples/run_first_row*.json
+examples/run_real_baseline*.json

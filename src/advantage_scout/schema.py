@@ -174,6 +174,12 @@ class RunConfig:
     sheet_name: str | None = None
     baseline_sheet_name: str | None = None
     top_k: int = 3
+    use_local_retrieval: bool = True
+    candidate_top_n: int = 40
+    retrieval_batch_size: int = 4
+    retrieval_weights: dict[str, float] | None = None
+    output_max_candidates: int = 3
+    output_table_path: str | None = None
     llm: LLMConfig = field(default_factory=LLMConfig)
     log_decisions: bool = False
 
