@@ -97,38 +97,9 @@ Header alignment should be alias-based and flexible. Query information and basel
 
 ## Agent Roles
 
-The comparison workflow should be organized as cooperating agents:
+🧭 The comparison workflow should feel like a compact chain of cooperating agents rather than one opaque step. One part parses raw text or xlsx input into structured rows, one part validates only the structure, and one part reads each query row to decide which fields matter most for retrieval. This keeps the front of the pipeline strict enough to catch malformed inputs while still staying flexible for messy real-world benchmark data.
 
-1. **Parse Agent**
-   - ingest raw text or xlsx
-   - normalize headers and values into structured rows
-   - assign stable row ids
-
-2. **Validation Agent**
-   - check structural issues only
-   - detect malformed rows, missing identifiers, and obvious parse failures
-   - avoid inventing extra business fields just to satisfy validation
-
-3. **Query Understanding Agent**
-   - read each query row
-   - summarize which fields look most relevant for retrieval
-   - produce structured context for later ranking
-
-4. **Tile Selection Agent**
-   - read one baseline tile at a time
-   - nominate the best candidate rows from that tile
-   - explain why each nominated row is relevant
-   - quote the exact cells used as evidence
-
-5. **Rerank Agent**
-   - compare all nominated candidates together
-   - select the final top `top_k` rows
-   - preserve evidence and reasoning for each selected row
-
-6. **Output Writer Agent**
-   - write the final output table
-   - include why each row was selected
-   - include the supporting quoted cells
+🏁 After that, the selection flow stays evidence-driven. A retrieval step narrows the baseline to the most relevant candidates, a ranking step compares those candidates globally, and the output step writes the final top `top_k` rows with clear reasons and quoted supporting cells. If retrieval coverage looks weak, the system can still fall back to tiled nomination, but the final answer should always come from a global rerank instead of tile-local scores.
 
 ## LLM Selection Policy
 
@@ -197,16 +168,17 @@ Current config fields include:
 - `llm`
 - `log_decisions`
 
-Examples:
+✨ Example config files include `config.example.json` and `examples/mixed_input_xlsx_baseline.json`.
 
-- `config.example.json`
-- `examples/mixed_input_xlsx_baseline.json`
+🚀 Example commands:
 
-Example command:
+`PYTHONPATH=src python -m advantage_scout.cli run --config examples/mixed_input_xlsx_baseline.json --env-file .env --with-explanations`
 
-- `PYTHONPATH=src python -m advantage_scout.cli run --config examples/mixed_input_xlsx_baseline.json --env-file .env --with-explanations`
-- `PYTHONPATH=src python -m advantage_scout.cli run --config examples/mixed_input_xlsx_baseline.json --env-file .env --with-explanations --output-file output.json`
-- `PYTHONPATH=src python -m advantage_scout.cli run --config examples/mixed_input_xlsx_baseline.json --env-file .env --output-table-file selected_candidates.csv`
+`PYTHONPATH=src python -m advantage_scout.cli run --config examples/mixed_input_xlsx_baseline.json --env-file .env --with-explanations --output-file output.json`
+
+`PYTHONPATH=src python -m advantage_scout.cli run --config examples/mixed_input_xlsx_baseline.json --env-file .env --output-table-file outputs/selected_candidates.csv`
+
+📦 Generated result files should be written outside `examples/`. The `examples/` folder is for small reference inputs and configs, while run outputs should go to a separate location such as `outputs/`.
 
 ## Output Table Requirements
 
