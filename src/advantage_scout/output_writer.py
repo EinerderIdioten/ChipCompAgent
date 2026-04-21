@@ -70,7 +70,18 @@ def write_selection_table(
         _write_xlsx(path, rows)
         return
 
-    _write_csv(path, rows)
+    write_selection_csv_rows(path, rows)
+
+
+def write_selection_csv(
+    result: AnalysisResult,
+    output_path: str | Path,
+    max_candidates_per_query: int = 3,
+) -> None:
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = build_selection_table(result, max_candidates_per_query=max_candidates_per_query)
+    write_selection_csv_rows(path, rows)
 
 
 def _selection_to_table_row(query_row: IndexedRow, selection: SelectionResult) -> dict[str, Any]:
@@ -130,6 +141,12 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(handle, fieldnames=TABLE_HEADERS)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def write_selection_csv_rows(path: str | Path, rows: list[dict[str, Any]]) -> None:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_csv(output_path, rows)
 
 
 def _render_quotes(quotes: list[EvidenceQuote]) -> str:

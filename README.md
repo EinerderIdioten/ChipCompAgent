@@ -45,6 +45,8 @@ Both of these are supported now:
 
 They are equal first-class inputs. The system should not split them into current versus future support. Both should flow through the same downstream steps.
 
+For raw text input, users can paste a small human-readable block instead of preparing a spreadsheet. A simple format like “model: Llama3.1-70B, chip: H100 SXM, # gpus: 64, seq length: 8192, tp: 4, pp: 4, cp: 2, global batch size: 128, micro batch size: 1, throughput: 1524, workload: pretrain” is enough for the parser to map the fields into the canonical schema. In practice, the most important thing is to include at least one identifier such as the model name or chip name, and then add any performance or parallelism fields that are available.
+
 ## Output policy
 
 The runtime should accept one explicit output parameter:
@@ -204,6 +206,7 @@ Example command:
 
 - `PYTHONPATH=src python -m advantage_scout.cli run --config examples/mixed_input_xlsx_baseline.json --env-file .env --with-explanations`
 - `PYTHONPATH=src python -m advantage_scout.cli run --config examples/mixed_input_xlsx_baseline.json --env-file .env --with-explanations --output-file output.json`
+- `PYTHONPATH=src python -m advantage_scout.cli run --config examples/mixed_input_xlsx_baseline.json --env-file .env --output-table-file selected_candidates.csv`
 
 ## Output Table Requirements
 
